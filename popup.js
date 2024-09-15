@@ -143,7 +143,7 @@ document.addEventListener("DOMContentLoaded", () => {
             contentDiv.appendChild(treeView);
           }
         } else {
-          // 原始資料部分顯示 JSON
+          // 原始資料部分顯示 JSON 或文字
           if (typeof section.content === "object") {
             const treeView = createTreeView(section.content);
             contentDiv.appendChild(treeView);
@@ -213,9 +213,8 @@ document.addEventListener("DOMContentLoaded", () => {
               }
             });
 
-            createTreeView(data[key]).childNodes.forEach((child) => {
-              childContainer.appendChild(child);
-            });
+            const childTree = createTreeView(data[key]);
+            childContainer.appendChild(childTree);
           } else {
             const valueSpan = document.createElement("span");
             valueSpan.className = "value";
@@ -287,6 +286,15 @@ document.addEventListener("DOMContentLoaded", () => {
       if (isGUID(obj)) {
         return "GUID";
       }
+      if (isDate(obj)) {
+        return "date";
+      }
+      if (isEmail(obj)) {
+        return "email";
+      }
+      if (isURL(obj)) {
+        return "url";
+      }
       return "string";
     } else if (typeof obj === "number") {
       return "number";
@@ -301,6 +309,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const guidRegex =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     return guidRegex.test(str);
+  }
+
+  function isDate(str) {
+    // 使用 Date.parse 來檢查是否為有效日期
+    return !isNaN(Date.parse(str));
+  }
+
+  function isEmail(str) {
+    // 基本的電子郵件格式檢查
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(str);
+  }
+
+  function isURL(str) {
+    // 基本的URL格式檢查
+    const urlRegex = /^(https?:\/\/)?([\w\-]+\.)+[\w\-]+(\/[\w\-./?%&=]*)?$/i;
+    return urlRegex.test(str);
   }
 
   function updateStatus(isCapturing) {
@@ -318,36 +343,60 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function highlightKeyword(keyword) {
+    // 移除所有現有的高亮
+    removeHighlights();
+
     if (!keyword) {
-      // 移除所有高亮
-      const highlighted = dataContainer.querySelectorAll(".highlight");
-      highlighted.forEach((span) => {
-        span.classList.remove("highlight");
-      });
       return;
     }
 
-    const regex = new RegExp(`(${escapeRegExp(keyword)})`, "gi");
+    const regex = new RegExp(escapeRegExp(keyword), "gi");
 
-    const traverseAndHighlight = (element) => {
-      if (element.nodeType === Node.TEXT_NODE) {
-        const parent = element.parentNode;
-        if (parent && parent.classList.contains("value")) {
-          const text = element.textContent;
-          const newHTML = escapeHtml(text).replace(
-            regex,
-            '<span class="highlight">$1</span>'
-          );
-          if (newHTML !== escapeHtml(text)) {
-            parent.innerHTML = newHTML;
-          }
-        }
-      } else {
-        element.childNodes.forEach((child) => traverseAndHighlight(child));
-      }
+    // Function to highlight text in an element
+    const highlightInElement = (element) => {
+      const text = element.textContent;
+      const matches = [...text.matchAll(regex)];
+      if (matches.length === 0) return;
+
+      let newHTML = "";
+      let lastIndex = 0;
+
+      matches.forEach((match) => {
+        newHTML += escapeHtml(text.substring(lastIndex, match.index));
+        newHTML += `<span class="highlight">${escapeHtml(match[0])}</span>`;
+        lastIndex = match.index + match[0].length;
+      });
+
+      newHTML += escapeHtml(text.substring(lastIndex));
+
+      element.innerHTML = newHTML;
     };
 
-    traverseAndHighlight(dataContainer);
+    // Process 'pre' elements
+    const preElements = dataContainer.querySelectorAll("pre");
+    preElements.forEach((pre) => {
+      highlightInElement(pre);
+    });
+
+    // Process 'span.value' elements
+    const valueSpans = dataContainer.querySelectorAll(".value");
+    valueSpans.forEach((span) => {
+      highlightInElement(span);
+    });
+
+    // Process 'span.key' elements
+    const keySpans = dataContainer.querySelectorAll(".key");
+    keySpans.forEach((span) => {
+      highlightInElement(span);
+    });
+  }
+
+  function removeHighlights() {
+    const highlighted = dataContainer.querySelectorAll(".highlight");
+    highlighted.forEach((span) => {
+      const parent = span.parentNode;
+      parent.replaceChild(document.createTextNode(span.textContent), span);
+    });
   }
 
   function escapeHtml(text) {
