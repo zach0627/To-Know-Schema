@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>ToKnowSchema</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 10px;
+        width: 600px;
+        height: 700px;
+        background-color: #f0f2f5;
+        overflow: hidden;
+      }
+      h2 {
+        text-align: center;
+        color: #333;
+      }
+      input {
+        width: calc(100% - 20px);
+        padding: 8px;
+        margin-bottom: 10px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      .button-group {
+        display: flex;
+        justify-content: space-between;
+      }
+      button {
+        padding: 8px 12px;
+        font-size: 14px;
+        margin-top: 5px;
+        flex: 1;
+        margin-right: 5px;
+        border: none;
+        border-radius: 4px;
+        color: #fff;
+        cursor: pointer;
+        transition: background-color 0.3s, opacity 0.3s;
+      }
+      button:last-child {
+        margin-right: 0;
+      }
+      #start {
+        background-color: #28a745;
+      }
+      #start:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+        opacity: 0.65;
+      }
+      #stop {
+        background-color: #dc3545;
+      }
+      #stop:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+        opacity: 0.65;
+      }
+      #clear {
+        background-color: #6c757d;
+      }
+      #clear:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+        opacity: 0.65;
+      }
+      #status {
+        margin-top: 10px;
+        font-weight: bold;
+        text-align: center;
+      }
+      #data-container {
+        margin-top: 15px;
+        height: calc(100% - 250px);
+        overflow-y: auto;
+      }
+      .label {
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+      pre {
+        background-color: #fff;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        overflow-x: auto;
+        font-size: 13px;
+      }
+      .success {
+        color: #28a745;
+      }
+      .error {
+        color: #dc3545;
+      }
+      .request-response {
+        margin-bottom: 20px;
+      }
+      .request-response h3 {
+        margin: 10px 0 5px;
+        font-size: 16px;
+        color: #007bff;
+      }
+      .collapsible {
+        background-color: #eee;
+        color: #444;
+        cursor: pointer;
+        padding: 8px;
+        width: 100%;
+        border: none;
+        text-align: left;
+        outline: none;
+        font-size: 15px;
+        margin-top: 5px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        transition: background-color 0.3s;
+      }
+      .collapsible::after {
+        content: "\25B6"; /* 右箭頭 */
+        font-size: 12px;
+        color: #777;
+        margin-left: auto;
+        transition: transform 0.3s;
+      }
+      .active.collapsible::after {
+        transform: rotate(90deg); /* 旋轉箭頭 */
+      }
+      .collapsible:hover {
+        background-color: #ccc;
+      }
+      .content {
+        padding: 0 10px;
+        display: none;
+        overflow: hidden;
+        background-color: #f9f9f9;
+        border: 1px solid #ccc;
+        border-top: none;
+        border-radius: 0 0 4px 4px;
+      }
+      #search-container {
+        margin-top: 10px;
+      }
+      #search-input {
+        width: calc(100% - 20px);
+        padding: 8px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      .highlight {
+        background-color: yellow;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>ToKnowSchema</h2>
+    <input type="text" id="apiUrl" placeholder="輸入 API URL" />
+    <div class="button-group">
+      <button id="start">開始抓取</button>
+      <button id="stop" disabled>停止抓取</button>
+      <button id="clear">清除資料</button>
+    </div>
+    <div id="status" class="success"></div>
+    <div id="search-container">
+      <input type="text" id="search-input" placeholder="搜尋關鍵字..." />
+    </div>
+    <div id="data-container">
+      <div class="label">抓取的資料：</div>
+      <div id="data"></div>
+    </div>
+  </body>
+  <script src="popup.js"></script>
+</html>
