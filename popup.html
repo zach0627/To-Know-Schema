@@ -7,8 +7,8 @@
       body {
         font-family: Arial, sans-serif;
         padding: 10px;
-        width: 600px;
-        height: 700px;
+        width: 700px; /* 增加寬度以容納更複雜的樹狀結構 */
+        height: 800px;
         background-color: #f0f2f5;
         overflow: hidden;
       }
@@ -75,7 +75,7 @@
       }
       #data-container {
         margin-top: 15px;
-        height: calc(100% - 250px);
+        height: calc(100% - 300px); /* 調整高度以適應更大的視窗 */
         overflow-y: auto;
         background-color: #fff;
         padding: 10px;
@@ -91,18 +91,6 @@
       }
       .error {
         color: #dc3545;
-      }
-      .request-response {
-        margin-bottom: 20px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        padding: 10px;
-        background-color: #fff;
-      }
-      .request-response h3 {
-        margin: 10px 0 5px;
-        font-size: 16px;
-        color: #007bff;
       }
       .collapsible {
         background-color: #eee;
@@ -173,6 +161,19 @@
       }
       .show-more-btn:hover {
         background-color: #0056b3;
+      }
+      /* 樹狀結構樣式 */
+      .json-tree ul {
+        list-style-type: none;
+        padding-left: 20px;
+      }
+      .json-tree li {
+        margin: 2px 0;
+      }
+      .json-tree .toggle-btn {
+        cursor: pointer;
+        color: #007bff;
+        margin-right: 5px;
       }
     </style>
   </head>

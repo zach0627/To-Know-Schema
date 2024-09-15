@@ -104,19 +104,19 @@ document.addEventListener("DOMContentLoaded", () => {
       const sections = [
         {
           label: "請求參數 (原始)",
-          content: parseContent(item.request.rawRequest),
+          content: parseIfJSON(item.request.rawRequest),
         },
         {
           label: "請求參數資料格式",
-          content: parseContent(item.request.rawRequest),
+          content: inferDataTypes(item.request.rawRequest),
         },
         {
           label: "回應資料 (原始)",
-          content: parseContent(item.response.rawResponse),
+          content: parseIfJSON(item.response.rawResponse),
         },
         {
           label: "回應資料資料格式",
-          content: parseContent(item.response.rawResponse),
+          content: inferDataTypes(item.response.rawResponse),
         },
       ];
 
@@ -129,8 +129,31 @@ document.addEventListener("DOMContentLoaded", () => {
         const contentDiv = document.createElement("div");
         contentDiv.className = "content";
 
-        const treeView = createTreeView(section.content);
-        contentDiv.appendChild(treeView);
+        if (section.label.includes("資料格式")) {
+          // 資料格式部分顯示類型
+          if (section.content.error) {
+            // 顯示錯誤訊息
+            const errorMsg = document.createElement("div");
+            errorMsg.textContent = section.content.error;
+            errorMsg.className = "error";
+            contentDiv.appendChild(errorMsg);
+          } else {
+            // 顯示資料類型樹狀結構
+            const treeView = createTreeView(section.content);
+            contentDiv.appendChild(treeView);
+          }
+        } else {
+          // 原始資料部分顯示 JSON
+          if (typeof section.content === "object") {
+            const treeView = createTreeView(section.content);
+            contentDiv.appendChild(treeView);
+          } else {
+            // 若不是物件，直接顯示文字
+            const textNode = document.createElement("pre");
+            textNode.textContent = section.content;
+            contentDiv.appendChild(textNode);
+          }
+        }
 
         requestResponseDiv.appendChild(contentDiv);
 
@@ -151,16 +174,8 @@ document.addEventListener("DOMContentLoaded", () => {
     initCollapsibles();
   }
 
-  function parseContent(content) {
-    try {
-      return JSON.parse(content);
-    } catch (e) {
-      return content; // 若不是 JSON，直接返回原始內容
-    }
-  }
-
-  function createTreeView(data, parentElement = null) {
-    const container = parentElement || document.createElement("div");
+  function createTreeView(data) {
+    const container = document.createElement("div");
     container.className = "json-tree";
 
     if (typeof data === "object" && data !== null) {
@@ -169,10 +184,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (data.hasOwnProperty(key)) {
           const li = document.createElement("li");
 
-          const span = document.createElement("span");
-          span.className = "key";
-          span.textContent = key + ": ";
-          li.appendChild(span);
+          const keySpan = document.createElement("span");
+          keySpan.className = "key";
+          keySpan.textContent = key + ": ";
+          li.appendChild(keySpan);
 
           if (typeof data[key] === "object" && data[key] !== null) {
             const toggleBtn = document.createElement("span");
@@ -181,7 +196,7 @@ document.addEventListener("DOMContentLoaded", () => {
             toggleBtn.style.cursor = "pointer";
             toggleBtn.style.color = "#007bff";
             toggleBtn.style.marginRight = "5px";
-            li.insertBefore(toggleBtn, span);
+            li.insertBefore(toggleBtn, keySpan);
 
             const childContainer = document.createElement("div");
             childContainer.className = "child-container";
@@ -198,7 +213,9 @@ document.addEventListener("DOMContentLoaded", () => {
               }
             });
 
-            createTreeView(data[key], childContainer);
+            createTreeView(data[key]).childNodes.forEach((child) => {
+              childContainer.appendChild(child);
+            });
           } else {
             const valueSpan = document.createElement("span");
             valueSpan.className = "value";
@@ -238,13 +255,19 @@ document.addEventListener("DOMContentLoaded", () => {
   function inferDataTypes(rawJson) {
     if (!rawJson) return "無資料";
     try {
-      const jsonObj = JSON.parse(rawJson);
+      const cleanedJson = cleanJson(rawJson);
+      const jsonObj = JSON.parse(cleanedJson);
       const inferred = inferDataTypesRecursive(jsonObj);
-      return JSON.stringify(inferred, null, 2);
+      return inferred;
     } catch (e) {
       // 若解析失敗，直接返回錯誤訊息
-      return "無法解析 JSON：" + e.message;
+      return { error: "無法解析 JSON：" + e.message };
     }
+  }
+
+  function cleanJson(jsonString) {
+    // 移除尾隨逗號
+    return jsonString.replace(/,\s*}/g, "}").replace(/,\s*\]/g, "]");
   }
 
   function inferDataTypesRecursive(obj) {
@@ -265,6 +288,10 @@ document.addEventListener("DOMContentLoaded", () => {
         return "GUID";
       }
       return "string";
+    } else if (typeof obj === "number") {
+      return "number";
+    } else if (typeof obj === "boolean") {
+      return "boolean";
     } else {
       return typeof obj;
     }
@@ -332,5 +359,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function escapeRegExp(text) {
     return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function parseIfJSON(text) {
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return text; // 若解析失敗，返回原始文字
+    }
   }
 });
