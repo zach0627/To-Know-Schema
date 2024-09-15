@@ -7,6 +7,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const statusDiv = document.getElementById("status");
   const searchInput = document.getElementById("search-input");
 
+  const MAX_DISPLAY_ITEMS = 10; // 限制初始顯示的項目數量
+
   // 從儲存中載入 API URL、抓取狀態和已解析的資料
   chrome.storage.local.get(
     ["apiUrl", "isCapturing", "capturedData"],
@@ -33,6 +35,8 @@ document.addEventListener("DOMContentLoaded", () => {
             if (response && response.success) {
               updateStatus(true);
               chrome.storage.local.set({ isCapturing: true });
+              statusDiv.textContent = "正在抓取...";
+              statusDiv.className = "success";
             } else {
               statusDiv.textContent =
                 "無法啟動抓取：" + (response.error || "未知錯誤");
@@ -54,6 +58,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (response && response.success) {
         updateStatus(false);
         chrome.storage.local.set({ isCapturing: false });
+        statusDiv.textContent = "未在抓取。";
+        statusDiv.className = "";
         // 從儲存中取得抓取的資料並顯示
         chrome.storage.local.get("capturedData", (result) => {
           if (result.capturedData) {
@@ -69,9 +75,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   clearButton.addEventListener("click", () => {
-    chrome.storage.local.remove("capturedData", () => {
+    chrome.storage.local.remove(["capturedData", "apiUrl"], () => {
       dataContainer.innerHTML = "";
       statusDiv.textContent = "";
+      apiUrlInput.value = "";
     });
   });
 
@@ -83,6 +90,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function displayData(data) {
     // 清空容器
     dataContainer.innerHTML = "";
+    // 按照 requestOrder 排序
+    data.sort((a, b) => a.request.order - b.request.order);
     data.forEach((item, index) => {
       const requestResponseDiv = document.createElement("div");
       requestResponseDiv.className = "request-response";
@@ -91,17 +100,23 @@ document.addEventListener("DOMContentLoaded", () => {
       title.textContent = `請求 ${index + 1}: ${item.url}`;
       requestResponseDiv.appendChild(title);
 
-      // 添加可折疊按鈕和內容容器
+      // 定義要顯示的部分
       const sections = [
-        { label: "請求參數", content: formatData(item.request) },
+        {
+          label: "請求參數 (原始)",
+          content: parseContent(item.request.rawRequest),
+        },
         {
           label: "請求參數資料格式",
-          content: formatData(inferDataTypes(item.request)),
+          content: parseContent(item.request.rawRequest),
         },
-        { label: "回應資料", content: formatData(item.response) },
         {
-          label: "回應資料格式",
-          content: formatData(inferDataTypes(item.response)),
+          label: "回應資料 (原始)",
+          content: parseContent(item.response.rawResponse),
+        },
+        {
+          label: "回應資料資料格式",
+          content: parseContent(item.response.rawResponse),
         },
       ];
 
@@ -114,9 +129,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const contentDiv = document.createElement("div");
         contentDiv.className = "content";
 
-        const pre = document.createElement("pre");
-        pre.textContent = section.content;
-        contentDiv.appendChild(pre);
+        const treeView = createTreeView(section.content);
+        contentDiv.appendChild(treeView);
 
         requestResponseDiv.appendChild(contentDiv);
 
@@ -137,6 +151,82 @@ document.addEventListener("DOMContentLoaded", () => {
     initCollapsibles();
   }
 
+  function parseContent(content) {
+    try {
+      return JSON.parse(content);
+    } catch (e) {
+      return content; // 若不是 JSON，直接返回原始內容
+    }
+  }
+
+  function createTreeView(data, parentElement = null) {
+    const container = parentElement || document.createElement("div");
+    container.className = "json-tree";
+
+    if (typeof data === "object" && data !== null) {
+      const ul = document.createElement("ul");
+      for (const key in data) {
+        if (data.hasOwnProperty(key)) {
+          const li = document.createElement("li");
+
+          const span = document.createElement("span");
+          span.className = "key";
+          span.textContent = key + ": ";
+          li.appendChild(span);
+
+          if (typeof data[key] === "object" && data[key] !== null) {
+            const toggleBtn = document.createElement("span");
+            toggleBtn.className = "toggle-btn";
+            toggleBtn.textContent = "[+]";
+            toggleBtn.style.cursor = "pointer";
+            toggleBtn.style.color = "#007bff";
+            toggleBtn.style.marginRight = "5px";
+            li.insertBefore(toggleBtn, span);
+
+            const childContainer = document.createElement("div");
+            childContainer.className = "child-container";
+            childContainer.style.display = "none";
+            li.appendChild(childContainer);
+
+            toggleBtn.addEventListener("click", () => {
+              if (childContainer.style.display === "none") {
+                childContainer.style.display = "block";
+                toggleBtn.textContent = "[-]";
+              } else {
+                childContainer.style.display = "none";
+                toggleBtn.textContent = "[+]";
+              }
+            });
+
+            createTreeView(data[key], childContainer);
+          } else {
+            const valueSpan = document.createElement("span");
+            valueSpan.className = "value";
+            valueSpan.textContent = formatValue(data[key]);
+            li.appendChild(valueSpan);
+          }
+
+          ul.appendChild(li);
+        }
+      }
+      container.appendChild(ul);
+    } else {
+      const span = document.createElement("span");
+      span.className = "value";
+      span.textContent = formatValue(data);
+      container.appendChild(span);
+    }
+
+    return container;
+  }
+
+  function formatValue(value) {
+    if (typeof value === "string") {
+      return `"${value}"`;
+    }
+    return String(value);
+  }
+
   function initCollapsibles() {
     const collapsibles = document.getElementsByClassName("collapsible");
     for (let i = 0; i < collapsibles.length; i++) {
@@ -145,27 +235,45 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function formatData(data) {
-    if (!data) return "無資料";
-    return JSON.stringify(data, null, 2);
+  function inferDataTypes(rawJson) {
+    if (!rawJson) return "無資料";
+    try {
+      const jsonObj = JSON.parse(rawJson);
+      const inferred = inferDataTypesRecursive(jsonObj);
+      return JSON.stringify(inferred, null, 2);
+    } catch (e) {
+      // 若解析失敗，直接返回錯誤訊息
+      return "無法解析 JSON：" + e.message;
+    }
   }
 
-  function inferDataTypes(obj) {
+  function inferDataTypesRecursive(obj) {
     if (obj === null) return "null";
     if (Array.isArray(obj)) {
-      return obj.map((item) => inferDataTypes(item));
+      return obj.map((item) => inferDataTypesRecursive(item));
     } else if (typeof obj === "object") {
       const result = {};
       for (const key in obj) {
         if (obj.hasOwnProperty(key)) {
           const value = obj[key];
-          result[key] = inferDataTypes(value);
+          result[key] = inferDataTypesRecursive(value);
         }
       }
       return result;
+    } else if (typeof obj === "string") {
+      if (isGUID(obj)) {
+        return "GUID";
+      }
+      return "string";
     } else {
       return typeof obj;
     }
+  }
+
+  function isGUID(str) {
+    const guidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return guidRegex.test(str);
   }
 
   function updateStatus(isCapturing) {
@@ -183,20 +291,36 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function highlightKeyword(keyword) {
-    const preElements = dataContainer.getElementsByTagName("pre");
-    for (let pre of preElements) {
-      const text = pre.textContent;
-      if (keyword === "") {
-        pre.innerHTML = escapeHtml(text);
-      } else {
-        const regex = new RegExp(`(${escapeRegExp(keyword)})`, "gi");
-        const newText = escapeHtml(text).replace(
-          regex,
-          '<span class="highlight">$1</span>'
-        );
-        pre.innerHTML = newText;
-      }
+    if (!keyword) {
+      // 移除所有高亮
+      const highlighted = dataContainer.querySelectorAll(".highlight");
+      highlighted.forEach((span) => {
+        span.classList.remove("highlight");
+      });
+      return;
     }
+
+    const regex = new RegExp(`(${escapeRegExp(keyword)})`, "gi");
+
+    const traverseAndHighlight = (element) => {
+      if (element.nodeType === Node.TEXT_NODE) {
+        const parent = element.parentNode;
+        if (parent && parent.classList.contains("value")) {
+          const text = element.textContent;
+          const newHTML = escapeHtml(text).replace(
+            regex,
+            '<span class="highlight">$1</span>'
+          );
+          if (newHTML !== escapeHtml(text)) {
+            parent.innerHTML = newHTML;
+          }
+        }
+      } else {
+        element.childNodes.forEach((child) => traverseAndHighlight(child));
+      }
+    };
+
+    traverseAndHighlight(dataContainer);
   }
 
   function escapeHtml(text) {

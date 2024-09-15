@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
   <head>
     <meta charset="UTF-8" />
     <title>ToKnowSchema</title>
@@ -15,6 +15,7 @@
       h2 {
         text-align: center;
         color: #333;
+        margin-bottom: 10px;
       }
       input {
         width: calc(100% - 20px);
@@ -76,18 +77,14 @@
         margin-top: 15px;
         height: calc(100% - 250px);
         overflow-y: auto;
-      }
-      .label {
-        font-weight: bold;
-        margin-bottom: 5px;
-      }
-      pre {
         background-color: #fff;
         padding: 10px;
         border: 1px solid #ccc;
         border-radius: 4px;
-        overflow-x: auto;
-        font-size: 13px;
+      }
+      .label {
+        font-weight: bold;
+        margin-bottom: 5px;
       }
       .success {
         color: #28a745;
@@ -97,6 +94,10 @@
       }
       .request-response {
         margin-bottom: 20px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 10px;
+        background-color: #fff;
       }
       .request-response h3 {
         margin: 10px 0 5px;
@@ -133,13 +134,18 @@
         background-color: #ccc;
       }
       .content {
-        padding: 0 10px;
+        padding: 10px;
         display: none;
         overflow: hidden;
         background-color: #f9f9f9;
         border: 1px solid #ccc;
         border-top: none;
         border-radius: 0 0 4px 4px;
+        font-family: "Courier New", Courier, monospace;
+        font-size: 13px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-wrap: break-word;
       }
       #search-container {
         margin-top: 10px;
@@ -153,6 +159,20 @@
       }
       .highlight {
         background-color: yellow;
+      }
+      /* 新增樣式 */
+      .show-more-btn {
+        background-color: #007bff;
+        color: #fff;
+        border: none;
+        padding: 5px 10px;
+        margin-top: 5px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      .show-more-btn:hover {
+        background-color: #0056b3;
       }
     </style>
   </head>

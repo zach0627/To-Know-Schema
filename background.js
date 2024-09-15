@@ -3,6 +3,7 @@ let apiUrlPattern = "";
 let capturedData = [];
 let debuggingTabId = null;
 let requestMap = {};
+let requestCounter = 1; // 用於追蹤請求順序
 
 // 監聽來自 popup.js 的訊息
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -43,6 +44,7 @@ function startCapturing(sendResponse) {
       isCapturing = true;
       capturedData = [];
       requestMap = {};
+      requestCounter = 1; // 重置請求計數器
       chrome.storage.local.set({ isCapturing: true });
 
       chrome.debugger.sendCommand(
@@ -93,11 +95,32 @@ function onEvent(debuggeeId, message, params) {
   if (message === "Network.requestWillBeSent") {
     const requestId = params.requestId;
     const request = params.request;
+    const method = request.method;
+    const url = request.url;
+    const headers = request.headers;
+    let rawRequest = "";
+
+    if (method.toUpperCase() === "GET") {
+      try {
+        const urlObj = new URL(url);
+        const paramsObj = {};
+        urlObj.searchParams.forEach((value, key) => {
+          paramsObj[key] = value;
+        });
+        rawRequest = JSON.stringify(paramsObj, null, 2);
+      } catch (e) {
+        rawRequest = "無法解析 GET 請求的 URL 參數。";
+      }
+    } else {
+      rawRequest = request.postData || "";
+    }
+
     requestMap[requestId] = {
-      method: request.method,
-      url: request.url,
-      headers: request.headers,
-      postData: request.postData || null,
+      method: method,
+      url: url,
+      headers: headers,
+      rawRequest: rawRequest,
+      order: requestCounter++, // 分配序號
     };
   }
 
@@ -116,57 +139,18 @@ function onEvent(debuggeeId, message, params) {
           if (!result) return;
 
           let responseBody = result.body;
-          let parsedResponse;
-          try {
-            parsedResponse = JSON.parse(responseBody);
-          } catch (e) {
-            parsedResponse = responseBody;
-          }
+          let rawResponse = responseBody; // 保留原始回應字串
 
-          let queryParams = {};
-          try {
-            const url = new URL(requestDetails.url);
-            url.searchParams.forEach((value, key) => {
-              queryParams[key] = value;
-            });
-          } catch (e) {
-            // URL 解析失敗，保持空對象
-          }
-
-          // 對於請求參數中的 `data` 字段，進行 URL 解碼和 JSON 解析
-          if (queryParams.data) {
-            try {
-              const decodedData = decodeURIComponent(queryParams.data);
-              queryParams.data = JSON.parse(decodedData);
-            } catch (e) {
-              // 保持原樣
-            }
-          }
-
-          // 如果有請求體，嘗試解析為 JSON
-          let requestBody = null;
-          if (requestDetails.postData) {
-            try {
-              requestBody = JSON.parse(requestDetails.postData);
-            } catch (e) {
-              // 保持原樣
-              requestBody = requestDetails.postData;
-            }
-          }
-
-          // 組合請求資料
-          const combinedRequestData = {
-            method: requestDetails.method,
-            url: requestDetails.url,
-            headers: requestDetails.headers,
-            queryParams: queryParams,
-            body: requestBody,
-          };
-
+          // 將捕獲的資料存儲到 capturedData 中
           const parsedData = {
             url: response.url,
-            request: combinedRequestData,
-            response: parsedResponse,
+            request: {
+              rawRequest: requestDetails.rawRequest,
+              order: requestDetails.order, // 保留序號
+            },
+            response: {
+              rawResponse: rawResponse,
+            },
           };
 
           capturedData.push(parsedData);
